@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>User Management</title>
+
+<style>
+/* ===== GLOBAL ===== */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "San Francisco", Arial, sans-serif;
+  padding: 40px;
+  background: transparent;
+  color: #111;
+}
+
+/* ===== TABLE CONTAINER ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+}
+
+/* ===== HEADER ===== */
+th {
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  color: #444;
+  border-bottom: 1px solid #eee;
+}
+
+/* ===== CELL ===== */
+td {
+  padding: 18px;
+  font-size: 14px;
+  border-bottom: 1px solid #f2f2f2;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+/* ===== HOVER EFFECT ===== */
+tr:hover td {
+  background: rgba(0, 122, 255, 0.04);
+}
+
+/* ===== STATUS ===== */
+.online {
+  color: #34c759;
+  font-weight: 600;
+}
+
+.offline {
+  color: #8e8e93;
+}
+
+.blocked {
+  color: #ff3b30;
+  font-weight: 600;
+}
+
+/* ===== BUTTON BASE ===== */
+button {
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* ===== BLOCK BUTTON ===== */
+.blockBtn {
+  background: #ff9f0a;
+  color: white;
+  box-shadow: 0 6px 15px rgba(255, 159, 10, 0.3);
+}
+
+.blockBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(255, 159, 10, 0.4);
+}
+
+/* ===== UNBLOCK STYLE (auto apply if text is Unblock) ===== */
+.blockBtn:active {
+  transform: scale(0.96);
+}
+</style>
+
+</head>
+<body>
+
+<h2>User Management (Admin)</h2>
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Email</th>
+<th>First Login</th>
+<th>Online</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="userTable"></tbody>
+</table>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+import { 
+  getFirestore,
+  collection,
+  onSnapshot,
+  updateDoc,
+  doc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCEdkzclcyqLDQv8kRUBN4l71AggHn1jKc",
+  authDomain: "student-admin-system-f92e7.firebaseapp.com",
+  projectId: "student-admin-system-f92e7",
+  storageBucket: "student-admin-system-f92e7.firebasestorage.app",
+  messagingSenderId: "693112425401",
+  appId: "1:693112425401:web:dd2285bd4eada7a6750468"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const table = document.getElementById("userTable");
+
+
+// 🔒 CHECK LOGIN
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    window.location.href = "index.html";
+  }
+});
+
+
+// 📡 REALTIME LOAD USER
+onSnapshot(collection(db, "users"), (snapshot) => {
+
+  table.innerHTML = "";
+
+  snapshot.forEach((docSnap) => {
+
+    const data = docSnap.data();
+    const id = docSnap.id;
+    const date = data.createdAt?.toDate().toLocaleString() || "-";
+
+    const row = document.createElement("tr");
+
+    row.innerHTML = `
+      <td>${data.name}</td>
+      <td>${data.email}</td>
+      <td>${date}</td>
+      <td class="${data.online ? "online" : "offline"}">
+        ${data.online ? "Online" : "Offline"}
+      </td>
+      <td class="${data.status === "blocked" ? "blocked" : ""}">
+        ${data.status}
+      </td>
+      <td>
+        <button class="blockBtn" data-id="${id}">
+          ${data.status === "blocked" ? "Unblock" : "Block"}
+        </button>
+      </td>
+    `;
+
+    table.appendChild(row);
+  });
+
+  // 🎯 Gắn lại sự kiện sau khi render
+  document.querySelectorAll(".blockBtn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const uid = btn.getAttribute("data-id");
+      await toggleBlock(uid);
+    });
+  });
+
+});
+
+
+// 🔐 BLOCK / UNBLOCK (ĐỌC TRỰC TIẾP TỪ FIRESTORE)
+async function toggleBlock(uid) {
+
+  const userRef = doc(db, "users", uid);
+  const snap = await getDoc(userRef);
+
+  if (!snap.exists()) return;
+
+  const currentStatus = snap.data().status;
+
+  const newStatus = currentStatus === "blocked"
+    ? "active"
+    : "blocked";
+
+  await updateDoc(userRef, {
+    status: newStatus
+  });
+
+}
+
+</script>
+
+</body>
+</html>
