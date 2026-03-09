@@ -91,12 +91,41 @@ button {
 .blockBtn:active {
   transform: scale(0.96);
 }
+
+/* SEARCH BOX */
+
+.searchBox{
+margin:20px 0;
+}
+
+#searchInput{
+width:260px;
+padding:10px 14px;
+border-radius:12px;
+border:1px solid #ddd;
+outline:none;
+font-size:14px;
+transition:0.2s;
+}
+
+#searchInput:focus{
+border-color:#007aff;
+box-shadow:0 0 0 3px rgba(0,122,255,0.15);
+}
 </style>
 
 </head>
 <body>
 
 <h2>User Management (Admin)</h2>
+
+<div class="searchBox">
+<input 
+type="text" 
+id="searchInput" 
+placeholder="Search name or email..."
+>
+</div>
 
 <table>
 <thead>
@@ -140,8 +169,11 @@ const db = getFirestore(app);
 
 const table = document.getElementById("userTable");
 
+/* CACHE USER */
+let allUsers = [];
 
-// 🔒 CHECK LOGIN
+
+/* 🔒 CHECK LOGIN */
 onAuthStateChanged(auth, (user) => {
   if (!user) {
     window.location.href = "index.html";
@@ -149,15 +181,33 @@ onAuthStateChanged(auth, (user) => {
 });
 
 
-// 📡 REALTIME LOAD USER
+/* 📡 REALTIME LOAD USER */
 onSnapshot(collection(db, "users"), (snapshot) => {
 
-  table.innerHTML = "";
+  allUsers = [];
 
   snapshot.forEach((docSnap) => {
 
-    const data = docSnap.data();
-    const id = docSnap.id;
+    allUsers.push({
+      id: docSnap.id,
+      ...docSnap.data()
+    });
+
+  });
+
+  renderUsers(allUsers);
+
+});
+
+
+/* 🎨 RENDER USER */
+function renderUsers(users){
+
+  table.innerHTML = "";
+
+  users.forEach((data)=>{
+
+    const id = data.id;
     const date = data.createdAt?.toDate().toLocaleString() || "-";
 
     const row = document.createElement("tr");
@@ -166,12 +216,15 @@ onSnapshot(collection(db, "users"), (snapshot) => {
       <td>${data.name}</td>
       <td>${data.email}</td>
       <td>${date}</td>
+
       <td class="${data.online ? "online" : "offline"}">
         ${data.online ? "Online" : "Offline"}
       </td>
+
       <td class="${data.status === "blocked" ? "blocked" : ""}">
         ${data.status}
       </td>
+
       <td>
         <button class="blockBtn" data-id="${id}">
           ${data.status === "blocked" ? "Unblock" : "Block"}
@@ -180,20 +233,25 @@ onSnapshot(collection(db, "users"), (snapshot) => {
     `;
 
     table.appendChild(row);
+
   });
 
-  // 🎯 Gắn lại sự kiện sau khi render
+  /* gắn lại sự kiện block */
   document.querySelectorAll(".blockBtn").forEach(btn => {
+
     btn.addEventListener("click", async () => {
+
       const uid = btn.getAttribute("data-id");
       await toggleBlock(uid);
+
     });
+
   });
 
-});
+}
 
 
-// 🔐 BLOCK / UNBLOCK (ĐỌC TRỰC TIẾP TỪ FIRESTORE)
+/* 🔐 BLOCK / UNBLOCK */
 async function toggleBlock(uid) {
 
   const userRef = doc(db, "users", uid);
@@ -210,6 +268,29 @@ async function toggleBlock(uid) {
   await updateDoc(userRef, {
     status: newStatus
   });
+
+}
+
+
+/* 🔎 SEARCH USER REALTIME */
+const searchInput = document.getElementById("searchInput");
+
+if(searchInput){
+
+searchInput.addEventListener("input",(e)=>{
+
+  const keyword = e.target.value.toLowerCase();
+
+  const filtered = allUsers.filter(user =>
+
+    (user.name || "").toLowerCase().includes(keyword) ||
+    (user.email || "").toLowerCase().includes(keyword)
+
+  );
+
+  renderUsers(filtered);
+
+});
 
 }
 
